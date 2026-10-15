@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neon Air Hockey</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#050816;color:#fff;font-family:Arial,sans-serif;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#ui{position:fixed;inset:0;pointer-events:none;text-align:center}
+#score{font-size:38px;font-weight:800;margin-top:18px;text-shadow:0 0 15px #38e8ff}
+#menu,#over{pointer-events:auto;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#0b1025e8;border:1px solid #39e8ff;border-radius:22px;padding:28px;min-width:300px;box-shadow:0 0 40px #00d9ff55}
+h1{margin:0 0 8px;font-size:34px}p{color:#b9c5df;line-height:1.5}
+button{border:0;border-radius:12px;padding:13px 20px;margin:6px;font-size:16px;font-weight:700;cursor:pointer;background:#21d4fd;color:#04101a}
+button.alt{background:#ff3cac;color:white}.hide{display:none!important}
+#hint{position:absolute;bottom:18px;width:100%;color:#9ba9c8;font-size:14px}
+</style></head><body><canvas id="c"></canvas><div id="ui"><div id="score">0 : 0</div>
+<div id="menu"><h1>NEON AIR HOCKEY</h1><p>Первый до 7 голов побеждает.<br>Игрок 1: W A S D · Игрок 2: стрелки</p>
+<button onclick="start('bot')">🤖 Против бота</button><button class="alt" onclick="start('pvp')">👥 Два игрока</button></div>
+<div id="over" class="hide"><h1 id="winner"></h1><p id="final"></p><button onclick="restart()">Играть снова</button></div>
+<div id="hint">P — пауза · R — рестарт</div></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d');let W,H,mode=null,paused=false,score=[0,0],last=0;
+const keys={}; addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.key.toLowerCase()==='p'&&mode)paused=!paused;if(e.key.toLowerCase()==='r'&&mode)resetGame()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+let p1,p2,puck;
+function resize(){W=c.width=innerWidth*devicePixelRatio;H=c.height=innerHeight*devicePixelRatio;x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);W=innerWidth;H=innerHeight;setupSizes()}addEventListener('resize',resize);
+function setupSizes(){let r=Math.max(28,Math.min(W,H)*.045);p1=p1||{x:W/2,y:H*.78};p2=p2||{x:W/2,y:H*.22};p1.r=p2.r=r;if(!puck)puck={x:W/2,y:H/2,vx:0,vy:0,r:r*.48};puck.r=r*.48}
+function start(m){mode=m;score=[0,0];document.getElementById('menu').classList.add('hide');document.getElementById('over').classList.add('hide');resetRound(Math.random()<.5?1:-1)}
+function restart(){document.getElementById('over').classList.add('hide');document.getElementById('menu').classList.remove('hide');mode=null}
+function resetGame(){score=[0,0];resetRound(1)}
+function resetRound(dir){p1.x=p2.x=W/2;p1.y=H*.78;p2.y=H*.22;puck.x=W/2;puck.y=H/2;let a=(Math.random()-.5)*.8,s=Math.min(W,H)*.48;puck.vx=Math.sin(a)*s;puck.vy=dir*Math.cos(a)*s;updateScore()}
+function updateScore(){document.getElementById('score').textContent=score[0]+' : '+score[1]}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function movePlayer(p,up,down,left,right,dt,top,bottom){let s=Math.min(W,H)*.65,dx=(keys[right]?1:0)-(keys[left]?1:0),dy=(keys[down]?1:0)-(keys[up]?1:0);let l=Math.hypot(dx,dy)||1;p.x+=dx/l*s*dt;p.y+=dy/l*s*dt;p.x=clamp(p.x,p.r+15,W-p.r-15);p.y=clamp(p.y,top+p.r,bottom-p.r)}
+function bot(dt){let targetX=puck.x,targetY=puck.y;if(puck.y>H*.55){targetX=W/2;targetY=H*.2}let s=Math.min(W,H)*.49,dx=targetX-p2.x,dy=targetY-p2.y,d=Math.hypot(dx,dy)||1;if(d>4){p2.x+=dx/d*s*dt;p2.y+=dy/d*s*dt}p2.x=clamp(p2.x,p2.r+15,W-p2.r-15);p2.y=clamp(p2.y,p2.r+15,H/2-p2.r)}
+function collide(p){let dx=puck.x-p.x,dy=puck.y-p.y,d=Math.hypot(dx,dy),min=p.r+puck.r;if(d<min&&d){let nx=dx/d,ny=dy/d;puck.x=p.x+nx*min;puck.y=p.y+ny*min;let speed=Math.max(Math.hypot(puck.vx,puck.vy)*1.035,Math.min(W,H)*.48);puck.vx=nx*speed;puck.vy=ny*speed}}
+function goal(i){score[i]++;updateScore();if(score[i]>=7){document.getElementById('winner').textContent=i===0?'Игрок 1 победил!':(mode==='bot'?'Бот победил!':'Игрок 2 победил!');document.getElementById('final').textContent='Счёт '+score[0]+' : '+score[1];document.getElementById('over').classList.remove('hide');mode=null}else resetRound(i===0?-1:1)}
+function update(dt){if(!mode||paused)return;movePlayer(p1,'w','s','a','d',dt,H/2,H);if(mode==='pvp')movePlayer(p2,'arrowup','arrowdown','arrowleft','arrowright',dt,0,H/2);else bot(dt);
+puck.x+=puck.vx*dt;puck.y+=puck.vy*dt;let goalW=W*.28;if(puck.x-puck.r<12){puck.x=12+puck.r;puck.vx=Math.abs(puck.vx)}if(puck.x+puck.r>W-12){puck.x=W-12-puck.r;puck.vx=-Math.abs(puck.vx)}
+if(puck.y< -puck.r){if(Math.abs(puck.x-W/2)<goalW/2)goal(0);else{puck.y=puck.r;puck.vy=Math.abs(puck.vy)}}if(puck.y>H+puck.r){if(Math.abs(puck.x-W/2)<goalW/2)goal(1);else{puck.y=H-puck.r;puck.vy=-Math.abs(puck.vy)}}collide(p1);collide(p2)}
+function circle(o,color,glow){x.save();x.shadowBlur=glow;x.shadowColor=color;x.fillStyle=color;x.beginPath();x.arc(o.x,o.y,o.r,0,Math.PI*2);x.fill();x.restore()}
+function draw(){x.clearRect(0,0,W,H);let g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#071b36');g.addColorStop(.5,'#090b22');g.addColorStop(1,'#260725');x.fillStyle=g;x.fillRect(0,0,W,H);
+x.strokeStyle='#26dfff';x.lineWidth=3;x.shadowBlur=12;x.shadowColor='#26dfff';x.strokeRect(12,12,W-24,H-24);x.beginPath();x.moveTo(12,H/2);x.lineTo(W-12,H/2);x.stroke();x.beginPath();x.arc(W/2,H/2,Math.min(W,H)*.12,0,Math.PI*2);x.stroke();x.shadowBlur=0;
+let gw=W*.28;x.strokeStyle='#ff3cac';x.lineWidth=7;x.beginPath();x.moveTo(W/2-gw/2,14);x.lineTo(W/2+gw/2,14);x.moveTo(W/2-gw/2,H-14);x.lineTo(W/2+gw/2,H-14);x.stroke();
+circle(p1,'#22d3ee',25);circle(p2,'#ff3cac',25);circle(puck,'#f8fafc',18);if(paused){x.fillStyle='#fff';x.font='bold 40px Arial';x.textAlign='center';x.fillText('ПАУЗА',W/2,H/2)}}
+function loop(t){let dt=Math.min((t-last)/1000,.025)||0;last=t;update(dt);draw();requestAnimationFrame(loop)}resize();requestAnimationFrame(loop);
+</script></body></html>
